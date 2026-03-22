@@ -1,0 +1,103 @@
+DBはPostgreSQLで、既存で、レイアウトは以下
+
+DBの接続先は、.envで作成して。
+初期値は、
+Server: localhost
+Database: tamtdb
+Port: 5432
+Username: tamtuser
+Password: TAMTTAMT
+にして
+
+
+Table "public.major_categories"
+    Column     |            Type             | Collation | Nullable |                   Default
+---------------+-----------------------------+-----------+----------+----------------------------------------------
+ id            | integer                     |           | not null | nextval('major_categories_id_seq'::regclass)
+ name          | character varying           |           | not null |
+ display_order | integer                     |           | not null |
+ is_deleted    | boolean                     |           | not null |
+ created_at    | timestamp without time zone |           | not null | now()
+ updated_at    | timestamp without time zone |           | not null | now()
+Indexes:
+    "major_categories_pkey" PRIMARY KEY, btree (id)
+    "ix_major_categories_id" btree (id)
+    "major_categories_name_key" UNIQUE CONSTRAINT, btree (name)
+Referenced by:
+    TABLE "middle_categories" CONSTRAINT "middle_categories_major_category_id_fkey" FOREIGN KEY (major_category_id) REFERENCES major_categories(id)
+
+
+Table "public.middle_categories"
+      Column       |            Type             | Collation | Nullable |                    Default
+-------------------+-----------------------------+-----------+----------+-----------------------------------------------
+ id                | integer                     |           | not null | nextval('middle_categories_id_seq'::regclass)
+ major_category_id | integer                     |           | not null |
+ name              | character varying           |           | not null |
+ display_order     | integer                     |           | not null |
+ is_deleted        | boolean                     |           | not null |
+ created_at        | timestamp without time zone |           | not null | now()
+ updated_at        | timestamp without time zone |           | not null | now()
+Indexes:
+    "middle_categories_pkey" PRIMARY KEY, btree (id)
+    "ix_middle_categories_id" btree (id)
+    "middle_categories_major_category_id_name_key" UNIQUE CONSTRAINT, btree (major_category_id, name)
+Foreign-key constraints:
+    "middle_categories_major_category_id_fkey" FOREIGN KEY (major_category_id) REFERENCES major_categories(id)
+Referenced by:
+    TABLE "knowhows" CONSTRAINT "knowhows_middle_category_id_fkey" FOREIGN KEY (middle_category_id) REFERENCES middle_categories(id)
+    TABLE "knowhows" CONSTRAINT "knowhows_middle_category_id_fkey1" FOREIGN KEY (middle_category_id) REFERENCES middle_categories(id)
+
+
+Table "public.knowhows"
+       Column       |            Type             | Collation | Nullable |               Default
+--------------------+-----------------------------+-----------+----------+--------------------------------------
+ id                 | integer                     |           | not null | nextval('knowhows_id_seq'::regclass)
+ title              | character varying           |           | not null |
+ keywords           | character varying           |           |          |
+ content            | text                        |           | not null |
+ display_order      | integer                     |           | not null |
+ is_deleted         | boolean                     |           | not null |
+ created_at         | timestamp without time zone |           | not null | now()
+ updated_at         | timestamp without time zone |           | not null | now()
+ middle_category_id | integer                     |           |          |
+Indexes:
+    "knowhows_pkey" PRIMARY KEY, btree (id)
+    "ix_knowhows_id" btree (id)
+Foreign-key constraints:
+    "knowhows_middle_category_id_fkey" FOREIGN KEY (middle_category_id) REFERENCES middle_categories(id)
+    "knowhows_middle_category_id_fkey1" FOREIGN KEY (middle_category_id) REFERENCES middle_categories(id)
+
+major_categoriesで大項目を管理する
+middle_categoriesで中項目を管理する
+knowhowsでノウハウを管理する
+
+
+pythonで、型ヒント句付けて
+fastapiで以下を作成して。
+
+1) 大項目一覧の取得処理
+
+2) 大項目追加処理
+
+3) 大項目名称変更処理
+
+4) 中項目一覧の取得処理
+   大項目IDを指定して、中項目の一覧を取得する
+
+5) 中項目追加処理
+   大項目IDを指定して、中項目を追加する
+
+6) 中項目名称変更処理
+
+
+7) ノウハウ一覧の取得
+   中項目IDを指定して、ノウハウの一覧を取得する
+
+8) ノウハウ詳細の取得
+   ノウハウIDを指定して、ノウハウの情報を取得する
+
+
+DBレイアウトとAPIの仕様を、他の生成AIでも理解できるようにまとめて、別ファイルで出力して。
+仕様書は日本語で。
+
+
