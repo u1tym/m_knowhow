@@ -100,7 +100,7 @@
 - **日時**: レスポンスの日時は ISO 8601 形式。DB は `timestamp without time zone` のため、タイムゾーン表記は実装・シリアライズに依存する。
 - **論理削除**: `is_deleted = true` の行は、一覧・詳細・名称変更の対象外。該当しない場合は `404 Not Found`（親カテゴリが無効な場合なども含む）。
 - **名称の一意性**: DB のユニーク制約違反時は `409 Conflict`（レスポンス本文にエラー説明を含む実装とする）。
-- **追加時の `display_order`**: 未削除行の同一スコープ内で `display_order` の最大値 + 1（大項目は全未削除大項目、中項目は同一 `major_category_id` 内の未削除中項目）。
+- **追加時の `display_order`**: 未削除行の同一スコープ内で `display_order` の最大値 + 1（大項目は同一 `aid` の未削除大項目、中項目は同一 `aid` + `major_category_id` の未削除中項目、ノウハウは同一 `aid` + `middle_category_id` の未削除ノウハウ）。
 - **認証必須**: 本 API は JWT（HttpOnly Cookie）を検証する。トークンは Cookie 名 `COOKIE_NAME`（既定 `access_token`）から取得する。
 - **ユーザー特定**: 検証済み JWT の `username` クレームを使い、`accounts.username = <username>` で `accounts.id` を取得し、これを `aid` として扱う。
 - **データスコープ**: `major_categories`/`middle_categories`/`knowhows` は常に `aid = ログインユーザーの accounts.id` で絞り込む。他ユーザーのデータは参照・更新不可。
@@ -301,3 +301,62 @@
 | ステータス | 条件 |
 |------------|------|
 | `404 Not Found` | 無い、または削除済み |
+
+### 3.9 ノウハウの新規登録
+
+| 項目 | 内容 |
+|------|------|
+| メソッド・パス | `POST /knowhows` |
+
+**リクエストボディ (JSON)**
+
+| フィールド | 型 | 必須 | 説明 |
+|------------|-----|------|------|
+| `title` | string | 必須 | タイトル（前後空白はトリム可） |
+| `keywords` | string \| null | 任意 | キーワード |
+| `content` | string | 必須 | 本文（前後空白はトリム可） |
+| `middle_category_id` | integer \| null | 任意 | 中項目 ID（`null` なら未分類） |
+
+**説明**
+
+- `middle_category_id` が指定される場合、同一 `aid` の有効な中項目であること。
+- 新規行は `is_deleted = false`。
+- `display_order` は同一 `aid` + `middle_category_id` スコープで採番する。
+
+**レスポンス** `201 Created` — 3.8 のオブジェクトと同形。
+
+**エラー**
+
+| ステータス | 条件 |
+|------------|------|
+| `404 Not Found` | 指定 `middle_category_id` が見つからない、または削除済み |
+
+### 3.10 ノウハウの更新
+
+| 項目 | 内容 |
+|------|------|
+| メソッド・パス | `PATCH /knowhows/{knowhow_id}` |
+| パスパラメータ | `knowhow_id` |
+
+**リクエストボディ (JSON)**
+
+| フィールド | 型 | 必須 | 説明 |
+|------------|-----|------|------|
+| `title` | string | 任意 | 変更後タイトル |
+| `keywords` | string \| null | 任意 | 変更後キーワード |
+| `content` | string | 任意 | 変更後本文 |
+| `middle_category_id` | integer \| null | 任意 | 変更後中項目 ID（`null` で未分類へ移動） |
+
+**説明**
+
+- 指定ノウハウが同一 `aid` で有効な場合のみ更新可能。
+- `middle_category_id` がリクエストに含まれる場合は、変更先が同一 `aid` の有効中項目であること（`null` は許容）。
+- `middle_category_id` を変更した場合、`display_order` は変更先スコープ（同一 `aid` + `middle_category_id`）で再採番される。
+
+**レスポンス** `200 OK` — 3.8 のオブジェクトと同形。
+
+**エラー**
+
+| ステータス | 条件 |
+|------------|------|
+| `404 Not Found` | ノウハウが見つからない、削除済み、または変更先中項目が無効 |

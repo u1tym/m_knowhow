@@ -149,6 +149,86 @@ def get_knowhow_detail(db: Session, knowhow_id: int, aid: int) -> Knowhow | None
     return row
 
 
+def _next_knowhow_display_order(
+    db: Session, aid: int, middle_category_id: int | None
+) -> int:
+    stmt = select(func.coalesce(func.max(Knowhow.display_order), 0)).where(
+        Knowhow.aid == aid,
+        Knowhow.is_deleted.is_(False),
+    )
+    if middle_category_id is None:
+        stmt = stmt.where(Knowhow.middle_category_id.is_(None))
+    else:
+        stmt = stmt.where(Knowhow.middle_category_id == middle_category_id)
+    next_order = db.scalar(stmt)
+    assert next_order is not None
+    return int(next_order) + 1
+
+
+def create_knowhow(
+    db: Session,
+    *,
+    aid: int,
+    title: str,
+    keywords: str | None,
+    content: str,
+    middle_category_id: int | None,
+) -> Knowhow | None:
+    if middle_category_id is not None and get_middle_category_if_active(
+        db, middle_category_id, aid
+    ) is None:
+        return None
+
+    row = Knowhow(
+        aid=aid,
+        title=title.strip(),
+        keywords=keywords.strip() if isinstance(keywords, str) else None,
+        content=content.strip(),
+        display_order=_next_knowhow_display_order(db, aid, middle_category_id),
+        is_deleted=False,
+        middle_category_id=middle_category_id,
+        updated_at=_utc_now_naive(),
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def update_knowhow(
+    db: Session,
+    *,
+    aid: int,
+    knowhow_id: int,
+    title: str | None,
+    keywords: str | None,
+    content: str | None,
+    middle_category_id: int | None,
+    middle_category_id_provided: bool,
+) -> Knowhow | None:
+    row = get_knowhow_detail(db, knowhow_id, aid)
+    if row is None:
+        return None
+
+    if middle_category_id_provided:
+        if middle_category_id is not None and get_middle_category_if_active(
+            db, middle_category_id, aid
+        ) is None:
+            return None
+        if row.middle_category_id != middle_category_id:
+            row.middle_category_id = middle_category_id
+            row.display_order = _next_knowhow_display_order(db, aid, middle_category_id)
+
+    if title is not None:
+        row.title = title.strip()
+    if keywords is not None:
+        row.keywords = keywords.strip()
+    if content is not None:
+        row.content = content.strip()
+    row.updated_at = _utc_now_naive()
+    db.flush()
+    return row
+
+
 def is_integrity_unique_violation(exc: IntegrityError) -> bool:
     orig: Any = getattr(exc, "orig", None)
     if orig is not None and hasattr(orig, "pgcode"):

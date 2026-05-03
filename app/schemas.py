@@ -63,3 +63,21 @@ class KnowhowDetailOut(BaseModel):
     middle_category_id: int | None
     created_at: datetime
     updated_at: datetime
+
+
+class KnowhowCreate(BaseModel):
+    title: str = Field(..., min_length=1, description="ノウハウタイトル")
+    keywords: str | None = Field(default=None, description="キーワード")
+    content: str = Field(..., min_length=1, description="本文")
+    middle_category_id: int | None = Field(
+        default=None, description="中項目ID（未分類の場合はnull）"
+    )
+
+
+class KnowhowUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, description="変更後タイトル")
+    keywords: str | None = Field(default=None, description="変更後キーワード")
+    content: str | None = Field(default=None, min_length=1, description="変更後本文")
+    middle_category_id: int | None = Field(
+        default=None, description="変更後中項目ID（未分類の場合はnull）"
+    )
