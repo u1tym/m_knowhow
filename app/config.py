@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     db_user: str = Field(default="tamtuser")
     db_password: str = Field(default="TAMTTAMT")
 
+    secret_key: str = Field(default="", description="JWT署名検証用（認証APIと同一）")
+    algorithm: str = Field(default="HS256")
+    cookie_name: str = Field(default="access_token")
+
     @property
     def database_url(self) -> str:
         return (

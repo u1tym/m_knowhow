@@ -12,23 +12,28 @@ def _utc_now_naive() -> datetime:
     return datetime.utcnow()
 
 
-def list_major_categories(db: Session) -> list[MajorCategory]:
+def list_major_categories(db: Session, aid: int) -> list[MajorCategory]:
     stmt = (
         select(MajorCategory)
-        .where(MajorCategory.is_deleted.is_(False))
+        .where(
+            MajorCategory.aid == aid,
+            MajorCategory.is_deleted.is_(False),
+        )
         .order_by(MajorCategory.display_order.asc(), MajorCategory.id.asc())
     )
     return list(db.scalars(stmt).all())
 
 
-def create_major_category(db: Session, name: str) -> MajorCategory:
+def create_major_category(db: Session, name: str, aid: int) -> MajorCategory:
     next_order = db.scalar(
         select(func.coalesce(func.max(MajorCategory.display_order), 0)).where(
-            MajorCategory.is_deleted.is_(False)
+            MajorCategory.aid == aid,
+            MajorCategory.is_deleted.is_(False),
         )
     )
     assert next_order is not None
     row = MajorCategory(
+        aid=aid,
         name=name.strip(),
         display_order=int(next_order) + 1,
         is_deleted=False,
@@ -39,9 +44,11 @@ def create_major_category(db: Session, name: str) -> MajorCategory:
     return row
 
 
-def rename_major_category(db: Session, category_id: int, new_name: str) -> MajorCategory | None:
+def rename_major_category(
+    db: Session, category_id: int, new_name: str, aid: int
+) -> MajorCategory | None:
     row = db.get(MajorCategory, category_id)
-    if row is None or row.is_deleted:
+    if row is None or row.is_deleted or row.aid != aid:
         return None
     row.name = new_name.strip()
     row.updated_at = _utc_now_naive()
@@ -49,25 +56,32 @@ def rename_major_category(db: Session, category_id: int, new_name: str) -> Major
     return row
 
 
-def get_major_category_if_active(db: Session, category_id: int) -> MajorCategory | None:
+def get_major_category_if_active(
+    db: Session, category_id: int, aid: int
+) -> MajorCategory | None:
     row = db.get(MajorCategory, category_id)
-    if row is None or row.is_deleted:
+    if row is None or row.is_deleted or row.aid != aid:
         return None
     return row
 
 
-def get_middle_category_if_active(db: Session, category_id: int) -> MiddleCategory | None:
+def get_middle_category_if_active(
+    db: Session, category_id: int, aid: int
+) -> MiddleCategory | None:
     row = db.get(MiddleCategory, category_id)
-    if row is None or row.is_deleted:
+    if row is None or row.is_deleted or row.aid != aid:
         return None
     return row
 
 
-def list_middle_categories(db: Session, major_category_id: int) -> list[MiddleCategory]:
+def list_middle_categories(
+    db: Session, major_category_id: int, aid: int
+) -> list[MiddleCategory]:
     stmt = (
         select(MiddleCategory)
         .where(
             MiddleCategory.major_category_id == major_category_id,
+            MiddleCategory.aid == aid,
             MiddleCategory.is_deleted.is_(False),
         )
         .order_by(MiddleCategory.display_order.asc(), MiddleCategory.id.asc())
@@ -76,18 +90,20 @@ def list_middle_categories(db: Session, major_category_id: int) -> list[MiddleCa
 
 
 def create_middle_category(
-    db: Session, major_category_id: int, name: str
+    db: Session, major_category_id: int, name: str, aid: int
 ) -> MiddleCategory | None:
-    if get_major_category_if_active(db, major_category_id) is None:
+    if get_major_category_if_active(db, major_category_id, aid) is None:
         return None
     next_order = db.scalar(
         select(func.coalesce(func.max(MiddleCategory.display_order), 0)).where(
             MiddleCategory.major_category_id == major_category_id,
+            MiddleCategory.aid == aid,
             MiddleCategory.is_deleted.is_(False),
         )
     )
     assert next_order is not None
     row = MiddleCategory(
+        aid=aid,
         major_category_id=major_category_id,
         name=name.strip(),
         display_order=int(next_order) + 1,
@@ -99,9 +115,11 @@ def create_middle_category(
     return row
 
 
-def rename_middle_category(db: Session, category_id: int, new_name: str) -> MiddleCategory | None:
+def rename_middle_category(
+    db: Session, category_id: int, new_name: str, aid: int
+) -> MiddleCategory | None:
     row = db.get(MiddleCategory, category_id)
-    if row is None or row.is_deleted:
+    if row is None or row.is_deleted or row.aid != aid:
         return None
     row.name = new_name.strip()
     row.updated_at = _utc_now_naive()
@@ -109,11 +127,14 @@ def rename_middle_category(db: Session, category_id: int, new_name: str) -> Midd
     return row
 
 
-def list_knowhows_by_middle(db: Session, middle_category_id: int) -> list[Knowhow]:
+def list_knowhows_by_middle(
+    db: Session, middle_category_id: int, aid: int
+) -> list[Knowhow]:
     stmt = (
         select(Knowhow)
         .where(
             Knowhow.middle_category_id == middle_category_id,
+            Knowhow.aid == aid,
             Knowhow.is_deleted.is_(False),
         )
         .order_by(Knowhow.display_order.asc(), Knowhow.id.asc())
@@ -121,9 +142,9 @@ def list_knowhows_by_middle(db: Session, middle_category_id: int) -> list[Knowho
     return list(db.scalars(stmt).all())
 
 
-def get_knowhow_detail(db: Session, knowhow_id: int) -> Knowhow | None:
+def get_knowhow_detail(db: Session, knowhow_id: int, aid: int) -> Knowhow | None:
     row = db.get(Knowhow, knowhow_id)
-    if row is None or row.is_deleted:
+    if row is None or row.is_deleted or row.aid != aid:
         return None
     return row
 

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.database import get_db
+from app.deps import get_current_aid
 from app.schemas import MiddleCategoryCreate, MiddleCategoryOut, MiddleCategoryRename
 
 router = APIRouter(tags=["middle_categories"])
@@ -14,14 +15,16 @@ router = APIRouter(tags=["middle_categories"])
     response_model=list[MiddleCategoryOut],
 )
 def list_middle_categories(
-    major_category_id: int, db: Session = Depends(get_db)
+    major_category_id: int,
+    db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
 ) -> list[MiddleCategoryOut]:
-    if crud.get_major_category_if_active(db, major_category_id) is None:
+    if crud.get_major_category_if_active(db, major_category_id, aid) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="大項目が見つからないか、削除済みです。",
         )
-    rows = crud.list_middle_categories(db, major_category_id)
+    rows = crud.list_middle_categories(db, major_category_id, aid)
     return [MiddleCategoryOut.model_validate(r) for r in rows]
 
 
@@ -34,9 +37,10 @@ def create_middle_category(
     major_category_id: int,
     body: MiddleCategoryCreate,
     db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
 ) -> MiddleCategoryOut:
     try:
-        row = crud.create_middle_category(db, major_category_id, body.name)
+        row = crud.create_middle_category(db, major_category_id, body.name, aid)
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -57,10 +61,13 @@ def create_middle_category(
 
 @router.patch("/middle-categories/{category_id}", response_model=MiddleCategoryOut)
 def rename_middle_category(
-    category_id: int, body: MiddleCategoryRename, db: Session = Depends(get_db)
+    category_id: int,
+    body: MiddleCategoryRename,
+    db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
 ) -> MiddleCategoryOut:
     try:
-        row = crud.rename_middle_category(db, category_id, body.name)
+        row = crud.rename_middle_category(db, category_id, body.name, aid)
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

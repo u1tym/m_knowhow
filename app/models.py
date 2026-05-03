@@ -8,10 +8,30 @@ class Base(DeclarativeBase):
     pass
 
 
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String, nullable=False)
+    password: Mapped[str] = mapped_column(String, nullable=False)
+    session_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_access: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, nullable=False, server_default=func.now()
+    )
+    random_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    email: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 class MajorCategory(Base):
     __tablename__ = "major_categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    aid: Mapped[int] = mapped_column(Integer, ForeignKey("accounts.id"), nullable=False)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -31,6 +51,7 @@ class MiddleCategory(Base):
     __tablename__ = "middle_categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    aid: Mapped[int] = mapped_column(Integer, ForeignKey("accounts.id"), nullable=False)
     major_category_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("major_categories.id"), nullable=False
     )
@@ -54,6 +75,7 @@ class Knowhow(Base):
     __tablename__ = "knowhows"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    aid: Mapped[int] = mapped_column(Integer, ForeignKey("accounts.id"), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)
     keywords: Mapped[str | None] = mapped_column(String, nullable=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)

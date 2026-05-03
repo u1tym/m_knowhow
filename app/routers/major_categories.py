@@ -4,23 +4,29 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.database import get_db
+from app.deps import get_current_aid
 from app.schemas import MajorCategoryCreate, MajorCategoryOut, MajorCategoryRename
 
 router = APIRouter(prefix="/major-categories", tags=["major_categories"])
 
 
 @router.get("", response_model=list[MajorCategoryOut])
-def list_major_categories(db: Session = Depends(get_db)) -> list[MajorCategoryOut]:
-    rows = crud.list_major_categories(db)
+def list_major_categories(
+    db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
+) -> list[MajorCategoryOut]:
+    rows = crud.list_major_categories(db, aid)
     return [MajorCategoryOut.model_validate(r) for r in rows]
 
 
 @router.post("", response_model=MajorCategoryOut, status_code=status.HTTP_201_CREATED)
 def create_major_category(
-    body: MajorCategoryCreate, db: Session = Depends(get_db)
+    body: MajorCategoryCreate,
+    db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
 ) -> MajorCategoryOut:
     try:
-        row = crud.create_major_category(db, body.name)
+        row = crud.create_major_category(db, body.name, aid)
         db.commit()
         db.refresh(row)
     except IntegrityError as e:
@@ -36,10 +42,13 @@ def create_major_category(
 
 @router.patch("/{category_id}", response_model=MajorCategoryOut)
 def rename_major_category(
-    category_id: int, body: MajorCategoryRename, db: Session = Depends(get_db)
+    category_id: int,
+    body: MajorCategoryRename,
+    db: Session = Depends(get_db),
+    aid: int = Depends(get_current_aid),
 ) -> MajorCategoryOut:
     try:
-        row = crud.rename_major_category(db, category_id, body.name)
+        row = crud.rename_major_category(db, category_id, body.name, aid)
         if row is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
