@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,15 @@ from app.models import Knowhow, MajorCategory, MiddleCategory
 
 def _utc_now_naive() -> datetime:
     return datetime.utcnow()
+
+
+def _ilike_fragment(fragment: str) -> str:
+    """LIKE パターンとして渡すユーザー入力のワイルドカード（%, _）と \\ をエスケープする。"""
+    return (
+        fragment.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
 
 
 def list_major_categories(db: Session, aid: int) -> list[MajorCategory]:
@@ -190,6 +199,81 @@ def create_knowhow(
         updated_at=_utc_now_naive(),
     )
     db.add(row)
+    db.flush()
+    return row
+
+
+def get_knowhow_for_mutation(db: Session, knowhow_id: int, aid: int) -> Knowhow | None:
+    """未削除チェックなしで aid が一致するノウハウを取得（論理削除 API 用）。"""
+    row = db.get(Knowhow, knowhow_id)
+    if row is None or row.aid != aid:
+        return None
+    return row
+
+
+def swap_knowhow_display_orders(db: Session, a: Knowhow, b: Knowhow) -> None:
+    a_order, b_order = a.display_order, b.display_order
+    a.display_order = b_order
+    b.display_order = a_order
+    now = _utc_now_naive()
+    a.updated_at = now
+    b.updated_at = now
+    db.flush()
+
+
+def search_knowhows_by_keywords_all_match(
+    db: Session, aid: int, keywords: list[str]
+) -> list[tuple[Knowhow, MiddleCategory | None, MajorCategory | None]]:
+    trimmed = [k.strip() for k in keywords if k.strip()]
+    if not trimmed:
+        return []
+
+    stmt = (
+        select(Knowhow, MiddleCategory, MajorCategory)
+        .outerjoin(
+            MiddleCategory,
+            Knowhow.middle_category_id == MiddleCategory.id,
+        )
+        .outerjoin(
+            MajorCategory,
+            MiddleCategory.major_category_id == MajorCategory.id,
+        )
+        .where(
+            Knowhow.aid == aid,
+            Knowhow.is_deleted.is_(False),
+            Knowhow.keywords.isnot(None),
+            or_(
+                Knowhow.middle_category_id.is_(None),
+                and_(
+                    MiddleCategory.is_deleted.is_(False),
+                    MajorCategory.id.isnot(None),
+                    MajorCategory.is_deleted.is_(False),
+                ),
+            ),
+        )
+    )
+    for kw in trimmed:
+        pat = f"%{_ilike_fragment(kw)}%"
+        stmt = stmt.where(Knowhow.keywords.ilike(pat, escape="\\"))
+
+    stmt = stmt.order_by(
+        MajorCategory.display_order.asc().nulls_last(),
+        MajorCategory.id.asc().nulls_last(),
+        MiddleCategory.display_order.asc().nulls_last(),
+        MiddleCategory.id.asc().nulls_last(),
+        Knowhow.display_order.asc(),
+        Knowhow.id.asc(),
+    )
+    rows = db.execute(stmt).all()
+    return [(k, mid, maj) for k, mid, maj in rows]
+
+
+def soft_delete_knowhow(db: Session, *, aid: int, knowhow_id: int) -> Knowhow | None:
+    row = get_knowhow_for_mutation(db, knowhow_id, aid)
+    if row is None or row.is_deleted:
+        return None
+    row.is_deleted = True
+    row.updated_at = _utc_now_naive()
     db.flush()
     return row
 

@@ -81,3 +81,27 @@ class KnowhowUpdate(BaseModel):
     middle_category_id: int | None = Field(
         default=None, description="変更後中項目ID（未分類の場合はnull）"
     )
+
+
+class KnowhowSwapDisplayOrderIn(BaseModel):
+    knowhow_id_a: int = Field(..., description="ノウハウID（一方）")
+    knowhow_id_b: int = Field(..., description="ノウハウID（他方）")
+
+
+class KnowhowSwapDisplayOrderOut(BaseModel):
+    knowhow_a: KnowhowListItemOut
+    knowhow_b: KnowhowListItemOut
+
+
+class KnowhowKeywordSearchItemOut(BaseModel):
+    major_category_id: int | None = Field(
+        default=None, description="大項目ID（未分類ノウハウは null）"
+    )
+    major_category_name: str | None = Field(default=None, description="大項目名称")
+    middle_category_id: int | None = Field(
+        default=None, description="中項目ID（未分類ノウハウは null）"
+    )
+    middle_category_name: str | None = Field(default=None, description="中項目名称")
+    knowhow_id: int
+    title: str
+    display_order: int

@@ -360,3 +360,96 @@
 | ステータス | 条件 |
 |------------|------|
 | `404 Not Found` | ノウハウが見つからない、削除済み、または変更先中項目が無効 |
+
+### 3.11 ノウハウ表示順の入れ替え
+
+| 項目 | 内容 |
+|------|------|
+| メソッド・パス | `POST /knowhows/swap-display-order` |
+
+**リクエストボディ (JSON)**
+
+| フィールド | 型 | 必須 | 説明 |
+|------------|-----|------|------|
+| `knowhow_id_a` | integer | 必須 | ノウハウ ID（一方） |
+| `knowhow_id_b` | integer | 必須 | ノウハウ ID（他方） |
+
+**説明**
+
+- 同一 `aid` の未削除ノウハウ 2 件を対象とする。
+- 両方の `middle_category_id` が一致すること（未分類同士はともに `null`）。スコープが異なる場合は `400 Bad Request`。
+- 同一 ID を 2 回指定した場合は `400 Bad Request`。
+- 双方の `display_order` を入れ替え、`updated_at` を更新する。
+
+**レスポンス** `200 OK` — オブジェクト:
+
+| フィールド | 型 | 説明 |
+|------------|-----|------|
+| `knowhow_a` | object | `knowhow_id_a` に対応する更新後のノウハウ（3.7 の一覧要素と同形：`id`, `title`, `keywords`, `display_order`, `middle_category_id`, `created_at`, `updated_at`） |
+| `knowhow_b` | object | `knowhow_id_b` に対応する更新後のノウハウ（同上） |
+
+**エラー**
+
+| ステータス | 条件 |
+|------------|------|
+| `400 Bad Request` | 同一 ID の二重指定、または `middle_category_id` が一致しない |
+| `404 Not Found` | いずれかのノウハウが無い、または削除済み |
+
+### 3.12 ノウハウのキーワード検索（複数キーワード・全一致）
+
+| 項目 | 内容 |
+|------|------|
+| メソッド・パス | `GET /knowhows/search` |
+
+**クエリパラメータ**
+
+| 名前 | 型 | 必須 | 説明 |
+|------|-----|------|------|
+| `keyword` | string（複数可） | 必須（1 個以上） | 同じ名前を繰り返して指定する（例: `?keyword=foo&keyword=bar`）。前後空白は実装でトリムしてよい。 |
+
+**説明**
+
+- 同一 `aid` の未削除ノウハウのみ対象。
+- `keywords` カラムが `null` の行はヒットしない。
+- 指定した各 `keyword` について、ノウハウの `keywords` に **部分一致** する必要がある（**すべて** を満たす行のみ。AND 条件）。マッチは **大文字小文字を区別しない**（実装は `ILIKE`）。
+- 未分類（`middle_category_id` が `null`）のノウハウも対象。大項目・中項目の ID・名称は `null` とする。
+- 中項目が紐づく場合は、未削除の中項目・親の未削除大項目が存在する行のみ返す（削除済みカテゴリにぶら下がるノウハウは結果に含めない）。
+- 並び順: 大項目 `display_order` 昇順（未分類は後）、大項目 `id` 昇順、中項目 `display_order` 昇順、中項目 `id` 昇順、ノウハウ `display_order` 昇順、ノウハウ `id` 昇順。
+
+**レスポンス** `200 OK` — 配列。要素:
+
+| フィールド | 型 | 説明 |
+|------------|-----|------|
+| `major_category_id` | integer \| null | 大項目 ID |
+| `major_category_name` | string \| null | 大項目名称 |
+| `middle_category_id` | integer \| null | 中項目 ID |
+| `middle_category_name` | string \| null | 中項目名称 |
+| `knowhow_id` | integer | ノウハウ ID |
+| `title` | string | ノウハウタイトル |
+| `display_order` | integer | ノウハウの表示順 |
+
+**エラー**
+
+| ステータス | 条件 |
+|------------|------|
+| `422 Unprocessable Entity` | `keyword` が 1 つも指定されていないなど、入力検証エラー |
+
+### 3.13 ノウハウの論理削除
+
+| 項目 | 内容 |
+|------|------|
+| メソッド・パス | `DELETE /knowhows/{knowhow_id}` |
+| パスパラメータ | `knowhow_id` |
+
+**説明**
+
+- 同一 `aid` に属する行の `is_deleted` を `true` にし、`updated_at` を更新する。
+- すでに論理削除済みの行に対しては `404 Not Found` とする（3.0 の論理削除の扱いと整合）。
+
+**レスポンス** `204 No Content` — 本文なし。
+
+**エラー**
+
+| ステータス | 条件 |
+|------------|------|
+| `404 Not Found` | ノウハウが無い、他 `aid` の行、またはすでに削除済み |
