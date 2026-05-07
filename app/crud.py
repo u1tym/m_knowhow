@@ -21,6 +21,11 @@ def _ilike_fragment(fragment: str) -> str:
     )
 
 
+def _normalize_keyword_for_search(keyword: str) -> str:
+    """英字を大文字化して比較用キーワードを作る。"""
+    return keyword.upper()
+
+
 def list_major_categories(db: Session, aid: int) -> list[MajorCategory]:
     stmt = (
         select(MajorCategory)
@@ -224,7 +229,7 @@ def swap_knowhow_display_orders(db: Session, a: Knowhow, b: Knowhow) -> None:
 def search_knowhows_by_keywords_all_match(
     db: Session, aid: int, keywords: list[str]
 ) -> list[tuple[Knowhow, MiddleCategory | None, MajorCategory | None]]:
-    trimmed = [k.strip() for k in keywords if k.strip()]
+    trimmed = [_normalize_keyword_for_search(k.strip()) for k in keywords if k.strip()]
     if not trimmed:
         return []
 
@@ -241,7 +246,6 @@ def search_knowhows_by_keywords_all_match(
         .where(
             Knowhow.aid == aid,
             Knowhow.is_deleted.is_(False),
-            Knowhow.keywords.isnot(None),
             or_(
                 Knowhow.middle_category_id.is_(None),
                 and_(
@@ -254,7 +258,13 @@ def search_knowhows_by_keywords_all_match(
     )
     for kw in trimmed:
         pat = f"%{_ilike_fragment(kw)}%"
-        stmt = stmt.where(Knowhow.keywords.ilike(pat, escape="\\"))
+        stmt = stmt.where(
+            or_(
+                func.upper(func.coalesce(Knowhow.keywords, "")).like(pat, escape="\\"),
+                func.upper(func.coalesce(MiddleCategory.name, "")).like(pat, escape="\\"),
+                func.upper(func.coalesce(MajorCategory.name, "")).like(pat, escape="\\"),
+            )
+        )
 
     stmt = stmt.order_by(
         MajorCategory.display_order.asc().nulls_last(),
